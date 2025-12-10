@@ -1,6 +1,7 @@
 import sys
 print("🚀 STARTUP IMPORTS: Gradio...", flush=True)
 import gradio as gr
+print(f"📦 Gradio Version: {gr.__version__}", flush=True)
 print("🚀 STARTUP IMPORTS: Gemini...", flush=True)
 import google.generativeai as genai
 print("🚀 STARTUP IMPORTS: Standard libs...", flush=True)
