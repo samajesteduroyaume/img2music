@@ -1,17 +1,26 @@
+import sys
+print("🚀 STARTUP IMPORTS: Gradio...", flush=True)
 import gradio as gr
+print("🚀 STARTUP IMPORTS: Gemini...", flush=True)
 import google.generativeai as genai
+print("🚀 STARTUP IMPORTS: Standard libs...", flush=True)
 import os
 import json
 import re
 from dotenv import load_dotenv
 try:
+    print("🚀 STARTUP IMPORTS: Pillow-HEIF...", flush=True)
     import pillow_heif
     pillow_heif.register_heif_opener()
 except ImportError:
+    print("⚠️ STARTUP: Pillow-HEIF not found (OK)", flush=True)
     pillow_heif = None
+print("🚀 STARTUP IMPORTS: App modules...", flush=True)
 from jsonschema import validate, ValidationError
 from cache import CompositionCache
+print("🚀 STARTUP IMPORTS: Metrics...", flush=True)
 from metrics import metrics, logger, log_user_action, track_time
+print("🚀 STARTUP IMPORTS: Audio Effects...", flush=True)
 from audio_effects import AudioEffects
 import time
 import numpy as np
