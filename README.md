@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: pink
 sdk: gradio
 sdk_version: 5.9.1
-app_file: app.py
+app_file: app_debug.py
 pinned: false
 license: mit
 short_description: Generate music scores from images via Gemini AI.
