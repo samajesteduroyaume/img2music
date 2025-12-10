@@ -401,11 +401,11 @@ with gr.Blocks(title="Img2Music AI Composer", css=css) as demo:
         
         with gr.TabItem("📊 Métriques", id=1):
             gr.Markdown("## 📈 Tableau de Bord des Performances")
-            metrics_display = gr.Markdown(get_metrics_display())
+            metrics_display = gr.Markdown("📊 Chargement des métriques...")
             btn_refresh_metrics = gr.Button("🔄 Actualiser les Métriques")
             
             gr.Markdown("### 📋 Statistiques Détaillées")
-            metrics_json = gr.JSON(value=metrics.get_stats())
+            metrics_json = gr.JSON(value={})
             
             def refresh_metrics():
                 return get_metrics_display(), metrics.get_stats()
@@ -476,6 +476,13 @@ with gr.Blocks(title="Img2Music AI Composer", css=css) as demo:
     js_render_func = "(abc) => { if(abc) ABCJS.renderAbc('paper', abc, { responsive: 'resize' }); }"
     
     abc_editor.change(None, [abc_editor], None, js=js_render_func)
+    
+    # Load metrics on startup (after API generation)
+    demo.load(
+        refresh_metrics,
+        [],
+        [metrics_display, metrics_json]
+    )
 
 if __name__ == "__main__":
     try:
