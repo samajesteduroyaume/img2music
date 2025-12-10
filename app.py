@@ -51,57 +51,59 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 if API_KEY:
     genai.configure(api_key=API_KEY)
 
-# JSON Schema for validation
-MUSIC_JSON_SCHEMA = {
-    "type": "object",
-    "required": ["mood", "tempo", "tracks"],
-    "properties": {
-        "mood": {"type": "string"},
-        "tempo": {"type": "number", "minimum": 40, "maximum": 240},
-        "suggested_instrument": {"type": "string"},
-        "tracks": {
-            "type": "object",
-            "properties": {
-                "melody": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["note", "duration"],
-                        "properties": {
-                            "note": {"type": "string"},
-                            "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+# JSON Schema for validation (encapsulated to avoid Gradio API scanning issues)
+def _get_music_schema():
+    """Returns the JSON schema for music composition validation."""
+    return {
+        "type": "object",
+        "required": ["mood", "tempo", "tracks"],
+        "properties": {
+            "mood": {"type": "string"},
+            "tempo": {"type": "number", "minimum": 40, "maximum": 240},
+            "suggested_instrument": {"type": "string"},
+            "tracks": {
+                "type": "object",
+                "properties": {
+                    "melody": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["note", "duration"],
+                            "properties": {
+                                "note": {"type": "string"},
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
                         }
-                    }
-                },
-                "bass": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["note", "duration"],
-                        "properties": {
-                            "note": {"type": "string"},
-                            "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                    },
+                    "bass": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["note", "duration"],
+                            "properties": {
+                                "note": {"type": "string"},
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
                         }
-                    }
-                },
-                "chords": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["notes", "duration"],
-                        "properties": {
-                            "notes": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                    },
+                    "chords": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["notes", "duration"],
+                            "properties": {
+                                "notes": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                },
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 
 # --- LOGIQUE IA ---
 @track_time("gemini_analysis")
@@ -174,7 +176,7 @@ def analyze_with_gemini(image, audio_path=None):
             
             # Validate JSON schema
             try:
-                validate(instance=parsed_json, schema=MUSIC_JSON_SCHEMA)
+                validate(instance=parsed_json, schema=_get_music_schema())
                 # Cache the successful composition
                 composition_cache.set(image, parsed_json, audio_path)
                 
