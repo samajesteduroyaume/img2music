@@ -71,7 +71,7 @@ MUSIC_JSON_SCHEMA = {
                             "note": {"type": "string"},
                             "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
                         },
-                        "additionalProperties": false
+                        "additionalProperties": False
                     }
                 },
                 "bass": {
@@ -83,7 +83,7 @@ MUSIC_JSON_SCHEMA = {
                             "note": {"type": "string"},
                             "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
                         },
-                        "additionalProperties": false
+                        "additionalProperties": False
                     }
                 },
                 "chords": {
@@ -98,7 +98,7 @@ MUSIC_JSON_SCHEMA = {
                             },
                             "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
                         },
-                        "additionalProperties": false
+                        "additionalProperties": False
                     }
                 }
             }
