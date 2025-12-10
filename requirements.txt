@@ -7,3 +7,4 @@ python-dotenv
 midiutil
 pillow-heif
 music21
+pydub

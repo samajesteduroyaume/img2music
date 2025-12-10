@@ -245,3 +245,26 @@ def score_to_audio(score, instrument_name='piano'):
         
     audio_int16 = (mix_buffer * 32767).astype(np.int16)
     return sr, audio_int16
+
+def save_audio_to_mp3(sr, audio_data):
+    """Sauvegarde les données audio (numpy int16) en fichier MP3 temporaire"""
+    try:
+        from pydub import AudioSegment
+        # Create AudioSegment from numpy array (requires explicit parameters)
+        # int16 = 2 bytes per sample
+        audio_segment = AudioSegment(
+            data=audio_data.tobytes(), 
+            sample_width=2, 
+            frame_rate=sr, 
+            channels=1
+        )
+        
+        tmp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+        # Close file to let pydub/ffmpeg write to it by path or file handle
+        tmp_mp3.close()
+        
+        audio_segment.export(tmp_mp3.name, format="mp3")
+        return tmp_mp3.name
+    except Exception as e:
+        print(f"Error saving MP3: {e}")
+        return None

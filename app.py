@@ -84,11 +84,11 @@ def analyze_with_gemini(image, audio_path=None):
 # --- GRADIO PROCESS ---
 
 def process_image(image, audio, instrument_override):
-    if not image: return None, None, None, None
+    if not image: return None, None, None, None, None
     
     # Check import status
     if music_utils is None:
-        return None, None, None, json.dumps({"error": "Server Error: music_utils failed to load", "details": music_utils_error}, indent=2)
+        return None, None, None, None, json.dumps({"error": "Server Error: music_utils failed to load", "details": music_utils_error}, indent=2)
     
     analysis, msg = analyze_with_gemini(image, audio)
     
@@ -115,8 +115,9 @@ def process_image(image, audio, instrument_override):
     # 3. Score -> Audio & MIDI
     wav_data = music_utils.score_to_audio(score, inst)
     midi_path = music_utils.score_to_midi(score)
+    mp3_path = music_utils.save_audio_to_mp3(wav_data[0], wav_data[1])
     
-    return wav_data, abc_content, midi_path, json.dumps(analysis, indent=2)
+    return wav_data, abc_content, midi_path, mp3_path, json.dumps(analysis, indent=2)
 
 def update_from_abc(abc_content, instrument_override):
     """Callback quand l'utilisateur modifie le code ABC"""
@@ -135,8 +136,9 @@ def update_from_abc(abc_content, instrument_override):
     # 2. Score -> Audio & MIDI
     wav_data = music_utils.score_to_audio(score, inst)
     midi_path = music_utils.score_to_midi(score)
+    mp3_path = music_utils.save_audio_to_mp3(wav_data[0], wav_data[1])
     
-    return wav_data, midi_path
+    return wav_data, midi_path, mp3_path
 
 # --- UI SETUP ---
 
@@ -171,7 +173,9 @@ with gr.Blocks(title="Img2Music AI Composer", css=css, head=js_head) as demo:
         with gr.Column(scale=1):
             # Sorties
             out_audio = gr.Audio(label="Rendu Audio (Synth)")
-            out_midi = gr.File(label="Télécharger MIDI")
+            with gr.Row():
+                out_midi = gr.File(label="Télécharger MIDI (.mid)")
+                out_mp3 = gr.File(label="Télécharger MP3 (.mp3)")
             
             # Editeur ABC
             gr.Markdown("### 📝 Éditeur de Partition (Format ABC)")
@@ -191,14 +195,14 @@ with gr.Blocks(title="Img2Music AI Composer", css=css, head=js_head) as demo:
     btn_compose.click(
         process_image, 
         [input_img, input_audio, inst_drop], 
-        [out_audio, abc_editor, out_midi, out_json]
+        [out_audio, abc_editor, out_midi, out_mp3, out_json]
     )
     
     # 2. Update Audio/Midi from ABC
     btn_update.click(
         update_from_abc,
         [abc_editor, inst_drop],
-        [out_audio, out_midi]
+        [out_audio, out_midi, out_mp3]
     )
     
     # 3. Update Visual Score (JS-only trigger on change or after generation)
