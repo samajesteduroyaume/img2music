@@ -397,7 +397,7 @@ with gr.Blocks(title="Img2Music AI Composer", css=css) as demo:
             
             # Debug JSON
             with gr.Accordion("🔍 Détails JSON (Debug)", open=False):
-                out_json = gr.JSON()
+                out_json = gr.JSON(value={})
         
         with gr.TabItem("📊 Métriques", id=1):
             gr.Markdown("## 📈 Tableau de Bord des Performances")
