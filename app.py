@@ -4,8 +4,16 @@ import os
 import json
 import re
 from dotenv import load_dotenv
-import music_utils
 import pillow_heif
+
+# Safe import for music_utils (to prevent 500 Global Error if music21 fails)
+music_utils = None
+music_utils_error = None
+try:
+    import music_utils
+except Exception as e:
+    music_utils_error = str(e)
+    print(f"CRITICAL ERROR IMPORTING MUSIC_UTILS: {e}")
 
 # Register HEIF opener
 pillow_heif.register_heif_opener()
@@ -78,6 +86,10 @@ def analyze_with_gemini(image, audio_path=None):
 def process_image(image, audio, instrument_override):
     if not image: return None, None, None, None
     
+    # Check import status
+    if music_utils is None:
+        return None, None, None, json.dumps({"error": "Server Error: music_utils failed to load", "details": music_utils_error}, indent=2)
+    
     analysis, msg = analyze_with_gemini(image, audio)
     
     if not analysis:
@@ -109,6 +121,9 @@ def process_image(image, audio, instrument_override):
 def update_from_abc(abc_content, instrument_override):
     """Callback quand l'utilisateur modifie le code ABC"""
     if not abc_content: return None, None
+    
+    if music_utils is None:
+        return None, None # Could return error but Gradio blocks expect specific types
     
     # 1. ABC -> Score
     score = music_utils.abc_to_music21(abc_content)
