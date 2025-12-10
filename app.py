@@ -156,7 +156,7 @@ js_head = """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.2.2/abcjs-basic-min.js"></script>
 """
 
-with gr.Blocks(title="Img2Music AI Composer", css=css, head=js_head) as demo:
+with gr.Blocks(title="Img2Music AI Composer") as demo:
     gr.Markdown("# 🎼 Img2Music: True AI Composer")
     gr.Markdown("L'IA analyse l'image et écrit la partition. Vous pouvez ensuite **éditer la partition** ci-dessous pour modifier la musique !")
     
@@ -218,4 +218,9 @@ with gr.Blocks(title="Img2Music AI Composer", css=css, head=js_head) as demo:
     # mais le change listener devrait l'attraper.
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(
+        server_name="0.0.0.0", 
+        server_port=7860,
+        css=css,
+        head=js_head
+    )
