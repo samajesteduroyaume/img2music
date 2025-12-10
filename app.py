@@ -3,7 +3,6 @@ import google.generativeai as genai
 import os
 import json
 import re
-import re
 from dotenv import load_dotenv
 try:
     import pillow_heif
@@ -26,8 +25,7 @@ except Exception as e:
     music_utils_error = str(e)
     print(f"CRITICAL ERROR IMPORTING MUSIC_UTILS: {e}")
 
-# Register HEIF opener
-pillow_heif.register_heif_opener()
+
 
 # Charger les variables d'environnement
 load_dotenv()
