@@ -10,6 +10,7 @@ from cache import CompositionCache
 from metrics import metrics, logger, log_user_action, track_time
 from audio_effects import AudioEffects
 import time
+import numpy as np
 
 # Safe import for music_utils (to prevent 500 Global Error if music21 fails)
 music_utils = None
