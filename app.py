@@ -45,9 +45,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Set server configuration
-st.set_option('server.port', 7860)
-st.set_option('server.address', '0.0.0.0')
 
 # Affichage de la configuration actuelle
 st.write("""

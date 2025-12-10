@@ -1,5 +1,5 @@
 [server]
-port = 7860
+port = 8501
 address = "0.0.0.0"
 enableCORS = false
 enableXsrfProtection = false
@@ -9,7 +9,7 @@ maxMessageSize = 200
 
 [browser]
 serverAddress = "0.0.0.0"
-serverPort = 7860
+serverPort = 8501
 gatherUsageStats = false
 
 [theme]
