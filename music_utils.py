@@ -5,9 +5,14 @@ import os
 import re
 
 # --- CONFIG MUSIC21 ---
-# On configure music21 pour ne pas chercher d'application externe pour le moment
-# car on veut juste manipuler les données
-music21.environment.set('autoDownload', 'allow')
+# Configuration pour environnement contraint (HF Spaces)
+environment = music21.environment.Environment()
+environment['autoDownload'] = 'allow' 
+# On tente d'éviter les écritures dans le home si possible, ou on laisse faire par défaut 
+# mais on évite de bloquer sur le téléchargement de corpus inutiles.
+# Note: Pour la simple création de notes, on n'a pas besoin de corpus/autoDownload.
+# Je désactive autoDownload pour éviter les timeouts/erreurs 500 au startup
+music21.environment.set('autoDownload', 'deny')
 
 # --- SYNTHÉTISEUR (Adapté de l'ancien code) ---
 class SimpleSynthesizer:
