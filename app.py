@@ -337,7 +337,11 @@ def get_metrics_display():
 - ❌ Erreurs: {stats['errors']}
 """
 
-with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css, head=js_head) as demo:
+# Simplified setup to debug 500 error
+# with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css, head=js_head) as demo:
+with gr.Blocks(title="Img2Music AI Composer", css=css) as demo:
+    # Inject JS manually via HTML component since 'head' might be causing issues
+    gr.HTML(js_head)
     gr.Markdown("# 🎼 Img2Music: True AI Composer Pro")
     gr.Markdown("L'IA analyse l'image et écrit la partition. Vous pouvez ensuite **éditer la partition** et appliquer des **effets audio** professionnels !")
     
@@ -462,11 +466,16 @@ with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css, h
     abc_editor.change(None, [abc_editor], None, js=js_render_func)
 
 if __name__ == "__main__":
-    logger.info("Starting Gradio server...")
-    print("🚀 STARTING DEPLOYMENT V4.1 - GRADIO FIX APPLIED", flush=True)
-    demo.launch(
-        server_name="0.0.0.0", 
-        server_port=7860
-    )
-    logger.info("Gradio server stopped.")
+    try:
+        logger.info("Starting Gradio server...")
+        print("🚀 STARTING DEPLOYMENT V4.2 - SAFE MODE", flush=True)
+        demo.launch(
+            server_name="0.0.0.0", 
+            server_port=7860
+        )
+        logger.info("Gradio server stopped.")
+    except Exception as e:
+        logger.critical(f"FAILED TO START GRADIO: {e}")
+        print(f"❌ FATAL ERROR: {e}", flush=True)
+        raise
 
