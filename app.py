@@ -409,8 +409,9 @@ with tab1:
             # Download buttons
             col_midi, col_mp3 = st.columns(2)
             with col_midi:
-                if result.get('midi'):
-                    with open(result['midi'], 'rb') as f:
+                midi_path = result.get('midi')
+                if midi_path and os.path.isfile(midi_path):
+                    with open(midi_path, 'rb') as f:
                         st.download_button(
                             "📥 Télécharger MIDI",
                             f.read(),
@@ -421,8 +422,9 @@ with tab1:
                 else:
                     st.error("❌ Erreur: Export MIDI échoué")
             with col_mp3:
-                if result.get('mp3'):
-                    with open(result['mp3'], 'rb') as f:
+                mp3_path = result.get('mp3')
+                if mp3_path and os.path.isfile(mp3_path):
+                    with open(mp3_path, 'rb') as f:
                         st.download_button(
                             "📥 Télécharger MP3",
                             f.read(),

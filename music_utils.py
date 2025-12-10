@@ -324,22 +324,38 @@ def score_to_audio(score, instrument_name='piano'):
 
 def save_audio_to_mp3(sr, audio_data):
     """Sauvegarde les données audio (numpy int16) en fichier MP3 temporaire"""
+    import subprocess
     try:
-        from pydub import AudioSegment
-        # Create AudioSegment from numpy array (requires explicit parameters)
-        # int16 = 2 bytes per sample
-        audio_segment = AudioSegment(
-            data=audio_data.tobytes(), 
-            sample_width=2, 
-            frame_rate=sr, 
-            channels=1
-        )
-        
+        # Save WAV to temp file first
+        tmp_wav = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+        tmp_wav.close()
+
+        # Write WAV data
+        import wave
+        with wave.open(tmp_wav.name, 'wb') as wav_file:
+            wav_file.setnchannels(1)  # Mono
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(sr)
+            wav_file.writeframes(audio_data.tobytes())
+
+        # Convert to MP3 using ffmpeg
         tmp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-        # Close file to let pydub/ffmpeg write to it by path or file handle
         tmp_mp3.close()
-        
-        audio_segment.export(tmp_mp3.name, format="mp3")
+
+        # ffmpeg command
+        cmd = [
+            'ffmpeg', '-y', '-i', tmp_wav.name,
+            '-acodec', 'libmp3lame', '-q:a', '2', tmp_mp3.name
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"ffmpeg error: {result.stderr}")
+            return None
+
+        # Clean up temp WAV
+        os.unlink(tmp_wav.name)
+
         return tmp_mp3.name
     except Exception as e:
         print(f"Error saving MP3: {e}")
