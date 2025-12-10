@@ -174,7 +174,7 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         content = [prompt, _image]
         if audio_path:
             audio_file = genai.upload_file(path=audio_path)
@@ -415,7 +415,7 @@ with tab1:
             result = st.session_state.composition
             
             # Audio player
-            st.audio(result['audio'][1].tobytes(), format='audio/wav', sample_rate=result['audio'][0])
+            st.audio(result['audio'][1], format='audio/wav', sample_rate=result['audio'][0])
             
             # Download buttons
             col_midi, col_mp3 = st.columns(2)
