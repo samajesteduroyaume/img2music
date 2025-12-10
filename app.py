@@ -30,6 +30,13 @@ except Exception as e:
 # Load environment variables
 load_dotenv()
 
+# Debug: Vérifier le chargement de la clé API
+print(f"GEMINI_API_KEY loaded: {os.getenv('GEMINI_API_KEY') is not None}")
+if os.getenv('GEMINI_API_KEY'):
+    print("Clé API chargée avec succès depuis le fichier .env")
+else:
+    print("⚠️ Attention: La clé API n'a pas pu être chargée")
+
 # Server configuration
 import socket
 
