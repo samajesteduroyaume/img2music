@@ -1,99 +1,68 @@
----
-title: Img2Music AI Composer
-emoji: 🎼
-colorFrom: indigo
-colorTo: pink
-sdk: gradio
-sdk_version: 5.9.1
-python_version: 3.11
-app_file: app.py
-pinned: false
-license: mit
-short_description: Generate music scores from images via Gemini AI.
----
+# Img2Music - AI Music Composer (Streamlit)
 
-# 🎼 Img2Music: AI Composer
+🎼 **Transformez vos images en musique avec l'IA !**
 
-Transformez vos images en véritables compositions musicales (Mélodie, Accords, Basse) grâce à Google Gemini 1.5 Flash.
+## 🚀 Déploiement sur Hugging Face
 
-## ✨ Fonctionnalités
+Cette application utilise **Streamlit** au lieu de Gradio pour une meilleure stabilité.
 
-### 🎨 Composition IA
-- **Analyse IA Visuelle** : Détecte l'humeur, le tempo et le style à partir d'images
-- **Composition Note-par-Note** : L'IA écrit la partition complète (mélodie, basse, accords)
-- **Support Audio** : Ajoutez un fichier audio pour influencer la composition
+### Configuration du Space
 
-### 🎹 Synthèse Audio Améliorée
-- **4 Instruments** : Piano, Synthé Rétro, Cordes, Basse
-- **Qualité Professionnelle** : Enveloppes ADSR, vibrato, harmoniques riches
-- **Export Multi-Format** : MIDI, MP3, WAV
+1. Allez sur https://huggingface.co/spaces/Samajesteduroyaume/img2music/settings
+2. Changez le **SDK** de `gradio` à `streamlit`
+3. Changez **App file** de `app.py` à `streamlit_app.py`
+4. Sauvegardez les modifications
 
-### ⚡ Performance
-- **Cache Intelligent** : Réduit les appels API et améliore la vitesse
-- **Validation Robuste** : Schéma JSON strict pour éviter les erreurs
-- **Timeout Configuré** : Pas de blocage de l'interface
+Le Space se redéploiera automatiquement.
 
-### 🎼 Édition Interactive
-- **Éditeur ABC** : Modifiez la partition en temps réel
-- **Visualisation** : Partition affichée avec ABCJS
-- **Régénération** : Mettez à jour l'audio après édition
+## 🎵 Fonctionnalités
 
-## 🚀 Configuration
+- ✨ Analyse d'image avec Gemini AI
+- 🎼 Génération automatique de partitions musicales
+- 🎹 Support de 7 instruments différents
+- 🎚️ Effets audio professionnels (Reverb, Delay, Compression)
+- 📝 Éditeur de notation ABC
+- 👁️ Visualisation de partition en temps réel
+- 💾 Export MIDI et MP3
+- 📊 Métriques de performance
 
-### Sur Hugging Face Spaces
-
-1. Ajoutez votre clé API dans **Settings** > **Repository secrets**
-   - Nom : `GEMINI_API_KEY`
-   - Valeur : Votre clé API Gemini ([obtenir une clé](https://makersuite.google.com))
-
-2. Le Space redémarrera automatiquement
-
-### Développement Local
+## 🛠️ Installation Locale
 
 ```bash
-# Cloner le dépôt
-git clone https://huggingface.co/spaces/Samajesteduroyaume/img2music
-cd img2music
-
-# Installer les dépendances
 pip install -r requirements.txt
-
-# Configurer la clé API
-echo "GEMINI_API_KEY=votre_cle_ici" > .env
-
-# Lancer l'application
-python app.py
+streamlit run streamlit_app.py
 ```
 
-## 📚 Documentation
+## 🔑 Configuration
 
-- [HUGGINGFACE_SECRETS.md](HUGGINGFACE_SECRETS.md) - Configuration des secrets
-- [TESTING.md](TESTING.md) - Guide des tests automatisés
+Créez un fichier `.env` avec votre clé API Gemini :
 
-## 🧪 Tests
-
-```bash
-# Exécuter tous les tests
-python3 test_suite.py
-
-# Tests avec verbosité
-python3 test_suite.py -v
+```
+GEMINI_API_KEY=votre_clé_api_ici
 ```
 
-## 🎯 Améliorations Récentes
+## 📦 Dépendances Principales
 
-- ✅ Cache intelligent avec LRU
-- ✅ Validation JSON robuste
-- ✅ Timeout API (30s)
-- ✅ Qualité audio améliorée
-- ✅ Suite de tests automatisés
-- ✅ Versions épinglées
+- `streamlit` - Framework web
+- `google-generativeai` - API Gemini
+- `music21` - Traitement musical
+- `pydub` - Manipulation audio
+- `numpy` - Calculs numériques
+
+## 🎯 Migration depuis Gradio
+
+Cette application a été migrée de Gradio vers Streamlit pour résoudre des problèmes de compatibilité avec Gradio 5.9.1 sur Hugging Face Spaces.
+
+### Changements principaux :
+- Interface utilisateur redessinée avec Streamlit
+- Gestion d'état via `st.session_state`
+- Cache optimisé avec `@st.cache_data`
+- Toutes les fonctionnalités conservées
 
 ## 📝 Licence
 
-MIT License - Voir le fichier LICENSE pour plus de détails.
+MIT License
 
-## 🤝 Contribution
+## 👨‍💻 Auteur
 
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
-
+Développé avec ❤️ par l'équipe Img2Music

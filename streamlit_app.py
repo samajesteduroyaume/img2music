@@ -1,0 +1,497 @@
+"""
+Img2Music - AI Music Composer
+Streamlit Version
+"""
+import streamlit as st
+import google.generativeai as genai
+import os
+import json
+import re
+from dotenv import load_dotenv
+import time
+import numpy as np
+from PIL import Image
+
+# Import app modules
+from jsonschema import validate, ValidationError
+from cache import CompositionCache
+from metrics import metrics, logger, log_user_action, track_time
+from audio_effects import AudioEffects
+
+# Safe import for music_utils
+music_utils = None
+music_utils_error = None
+try:
+    import music_utils
+except Exception as e:
+    music_utils_error = str(e)
+    st.error(f"❌ Erreur critique: music_utils n'a pas pu être chargé: {e}")
+
+# Load environment variables
+load_dotenv()
+
+# Page configuration
+st.set_page_config(
+    page_title="Img2Music AI Composer",
+    page_icon="🎼",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Initialize cache and effects
+if 'composition_cache' not in st.session_state:
+    st.session_state.composition_cache = CompositionCache(max_size=100, ttl_seconds=3600)
+if 'audio_effects' not in st.session_state:
+    st.session_state.audio_effects = AudioEffects(sample_rate=44100)
+
+# Gemini Configuration
+API_KEY = os.getenv("GEMINI_API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+
+# JSON Schema for validation
+def _get_music_schema():
+    """Returns the JSON schema for music composition validation."""
+    return {
+        "type": "object",
+        "required": ["mood", "tempo", "tracks"],
+        "properties": {
+            "mood": {"type": "string"},
+            "tempo": {"type": "number", "minimum": 40, "maximum": 240},
+            "suggested_instrument": {"type": "string"},
+            "tracks": {
+                "type": "object",
+                "properties": {
+                    "melody": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["note", "duration"],
+                            "properties": {
+                                "note": {"type": "string"},
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
+                        }
+                    },
+                    "bass": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["note", "duration"],
+                            "properties": {
+                                "note": {"type": "string"},
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
+                        }
+                    },
+                    "chords": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["notes", "duration"],
+                            "properties": {
+                                "notes": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                },
+                                "duration": {"type": "number", "minimum": 0.125, "maximum": 8.0}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+# --- AI LOGIC ---
+@st.cache_data(show_spinner=False)
+def analyze_with_gemini(_image, audio_path=None):
+    """Analyze image with Gemini AI to generate music composition."""
+    if not API_KEY:
+        logger.warning("API key not configured")
+        return None, "⚠️ Configurez GEMINI_API_KEY."
+    
+    start_time = time.time()
+    
+    prompt = """
+    Act as a professional music composer.
+    Analyze the image (and audio if provided) and compose a unique short musical piece (approx 15-20s duration).
+    If audio is provided, use its rhythm and mood to influence the composition.
+    
+    You MUST output valid JSON following this EXACT structure:
+    {
+      "mood": "Description of mood",
+      "tempo": 100,
+      "suggested_instrument": "piano",
+      "tracks": {
+        "melody": [
+          {"note": "C4", "duration": 1.0},
+          {"note": "E4", "duration": 0.5},
+          {"note": "G4", "duration": 0.5},
+          {"note": "REST", "duration": 1.0}
+        ],
+        "bass": [
+          {"note": "C2", "duration": 2.0},
+          {"note": "G2", "duration": 2.0}
+        ],
+        "chords": [
+          {"notes": ["C3", "E3", "G3"], "duration": 4.0},
+          {"notes": ["F3", "A3", "C4"], "duration": 4.0}
+        ]
+      }
+    }
+    
+    Rules:
+    - Notes format: "C#4", "Bb3", "F5". Use "REST" for silence.
+    - Duration is in beats (0.25, 0.5, 1.0, 2.0, 4.0).
+    - Ensure melody, bass, and chords have roughly the same total duration.
+    - Be creative with the melody (don't just go up and down scales).
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-flash-latest')
+        content = [prompt, _image]
+        if audio_path:
+            audio_file = genai.upload_file(path=audio_path)
+            content.append(audio_file)
+        
+        response = model.generate_content(
+            content,
+            request_options={"timeout": 30}
+        )
+        
+        # Extract JSON from response
+        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        if match:
+            parsed_json = json.loads(match.group(0))
+            
+            # Validate JSON schema
+            try:
+                validate(instance=parsed_json, schema=_get_music_schema())
+                
+                duration = time.time() - start_time
+                metrics.record_api_call(duration, cached=False)
+                log_user_action("composition_generated", {"tempo": parsed_json.get("tempo"), "mood": parsed_json.get("mood")})
+                
+                return parsed_json, "✅ Composition IA générée avec succès."
+            except ValidationError as ve:
+                logger.error(f"JSON validation error: {ve}")
+                metrics.record_error("validation", str(ve))
+                return None, f"❌ Erreur validation JSON: {ve.message}"
+        
+        return None, "❌ Erreur format JSON Gemini"
+    except Exception as e:
+        logger.exception("API call failed")
+        metrics.record_error("api", str(e))
+        return None, f"❌ Erreur API: {e}"
+
+def process_composition(image, audio_file, instrument, use_reverb, use_delay, use_compression):
+    """Process image and generate music composition."""
+    if music_utils is None:
+        st.error(f"❌ Erreur: music_utils n'est pas disponible. {music_utils_error}")
+        return None
+    
+    start_time = time.time()
+    
+    with st.spinner("🎨 Analyse de l'image avec l'IA..."):
+        analysis, msg = analyze_with_gemini(image, audio_file)
+    
+    if not analysis:
+        st.warning(f"⚠️ {msg}. Utilisation d'une composition de secours.")
+        analysis = {
+            "mood": "Fallback Basic",
+            "tempo": 120,
+            "tracks": {
+                "melody": [{"note": "C4", "duration": 1}, {"note": "E4", "duration": 1}, {"note": "G4", "duration": 2}],
+                "bass": [{"note": "C2", "duration": 4}],
+                "chords": [{"notes": ["C3", "E3", "G3"], "duration": 4}]
+            }
+        }
+    else:
+        st.success(msg)
+    
+    inst = instrument if instrument != "Auto-Detect" else analysis.get('suggested_instrument', 'piano')
+    
+    with st.spinner("🎼 Génération de la partition..."):
+        score = music_utils.json_to_music21(analysis)
+        abc_content = music_utils.music21_to_abc(score)
+    
+    with st.spinner("🎵 Synthèse audio..."):
+        wav_data = music_utils.score_to_audio(score, inst)
+        
+        # Apply effects
+        sr, audio_array = wav_data
+        audio_float = audio_array.astype(np.float32) / 32767.0
+        
+        processed_audio = st.session_state.audio_effects.apply_effects_chain(
+            audio_float,
+            use_reverb=use_reverb,
+            use_delay=use_delay,
+            use_compression=use_compression,
+            room_size=0.6,
+            delay_time=0.25,
+            feedback=0.35,
+            delay_mix=0.25
+        )
+        
+        processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
+        wav_data = (sr, processed_audio_int16)
+    
+    with st.spinner("💾 Export MIDI et MP3..."):
+        midi_path = music_utils.score_to_midi(score)
+        mp3_path = music_utils.save_audio_to_mp3(wav_data[0], wav_data[1])
+    
+    metrics.record_composition(time.time() - start_time)
+    
+    return {
+        'audio': wav_data,
+        'abc': abc_content,
+        'midi': midi_path,
+        'mp3': mp3_path,
+        'json': analysis
+    }
+
+def update_from_abc(abc_content, instrument, use_reverb, use_delay, use_compression):
+    """Update audio from modified ABC notation."""
+    if music_utils is None or not abc_content:
+        return None
+    
+    with st.spinner("🔄 Mise à jour de la partition..."):
+        score = music_utils.abc_to_music21(abc_content)
+        if not score:
+            st.error("❌ Erreur: Code ABC invalide")
+            return None
+        
+        inst = instrument if instrument != "Auto-Detect" else 'piano'
+        
+        wav_data = music_utils.score_to_audio(score, inst)
+        
+        sr, audio_array = wav_data
+        audio_float = audio_array.astype(np.float32) / 32767.0
+        
+        processed_audio = st.session_state.audio_effects.apply_effects_chain(
+            audio_float,
+            use_reverb=use_reverb,
+            use_delay=use_delay,
+            use_compression=use_compression,
+            room_size=0.6,
+            delay_time=0.25,
+            feedback=0.35,
+            delay_mix=0.25
+        )
+        
+        processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
+        wav_data = (sr, processed_audio_int16)
+        
+        midi_path = music_utils.score_to_midi(score)
+        mp3_path = music_utils.save_audio_to_mp3(wav_data[0], wav_data[1])
+    
+    return {
+        'audio': wav_data,
+        'midi': midi_path,
+        'mp3': mp3_path
+    }
+
+# --- STREAMLIT UI ---
+
+# Custom CSS
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 3rem;
+        font-weight: bold;
+        text-align: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
+    }
+    .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown('<h1 class="main-header">🎼 Img2Music: AI Composer</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">L\'IA analyse votre image et compose une partition musicale unique</p>', unsafe_allow_html=True)
+
+# Sidebar - Configuration
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    
+    instrument = st.selectbox(
+        "🎹 Instrument Principal",
+        ["Auto-Detect", "piano", "synth_retro", "strings", "bass", "guitar", "brass", "drums"],
+        help="Choisissez l'instrument ou laissez l'IA décider"
+    )
+    
+    st.subheader("🎚️ Effets Audio")
+    use_reverb = st.checkbox("🌊 Reverb", value=False, help="Ajoute de la profondeur et de l'espace")
+    use_delay = st.checkbox("🔁 Delay", value=False, help="Écho rythmique")
+    use_compression = st.checkbox("📊 Compression", value=True, help="Égalise les dynamiques (recommandé)")
+    
+    st.divider()
+    
+    # Metrics
+    if st.button("📊 Actualiser Métriques"):
+        stats = metrics.get_stats()
+        st.metric("Compositions", stats['total_compositions'])
+        st.metric("Appels API", stats['api_calls'])
+        st.metric("Taux de cache", stats['cache_hit_rate'])
+
+# Main content
+tab1, tab2, tab3 = st.tabs(["🎨 Composer", "📝 Éditeur ABC", "ℹ️ Aide"])
+
+with tab1:
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📥 Entrées")
+        uploaded_image = st.file_uploader(
+            "Image Inspiratrice",
+            type=["png", "jpg", "jpeg", "webp"],
+            help="Uploadez une image qui vous inspire"
+        )
+        
+        uploaded_audio = st.file_uploader(
+            "Inspiration Audio (Optionnel)",
+            type=["mp3", "wav", "ogg"],
+            help="Optionnel: ajoutez un fichier audio pour influencer le rythme"
+        )
+        
+        if uploaded_image:
+            st.image(uploaded_image, caption="Image uploadée", use_container_width=True)
+        
+        compose_button = st.button("✨ COMPOSER LA PARTITION IA", type="primary", use_container_width=True)
+    
+    with col2:
+        st.subheader("🎵 Résultats")
+        
+        if compose_button and uploaded_image:
+            # Process composition
+            image = Image.open(uploaded_image)
+            audio_path = uploaded_audio.name if uploaded_audio else None
+            
+            result = process_composition(image, audio_path, instrument, use_reverb, use_delay, use_compression)
+            
+            if result:
+                # Store in session state
+                st.session_state.composition = result
+                st.session_state.abc_content = result['abc']
+        
+        # Display results if available
+        if 'composition' in st.session_state and st.session_state.composition:
+            result = st.session_state.composition
+            
+            # Audio player
+            st.audio(result['audio'][1].tobytes(), format='audio/wav', sample_rate=result['audio'][0])
+            
+            # Download buttons
+            col_midi, col_mp3 = st.columns(2)
+            with col_midi:
+                with open(result['midi'], 'rb') as f:
+                    st.download_button(
+                        "📥 Télécharger MIDI",
+                        f.read(),
+                        file_name="composition.mid",
+                        mime="audio/midi",
+                        use_container_width=True
+                    )
+            with col_mp3:
+                with open(result['mp3'], 'rb') as f:
+                    st.download_button(
+                        "📥 Télécharger MP3",
+                        f.read(),
+                        file_name="composition.mp3",
+                        mime="audio/mpeg",
+                        use_container_width=True
+                    )
+            
+            # JSON Debug
+            with st.expander("🔍 Détails JSON (Debug)"):
+                st.json(result['json'])
+
+with tab2:
+    st.subheader("📝 Éditeur de Partition (Format ABC)")
+    
+    if 'abc_content' in st.session_state:
+        abc_editor = st.text_area(
+            "Code ABC (Modifiable)",
+            value=st.session_state.abc_content,
+            height=300,
+            help="Modifiez le code ABC pour personnaliser la partition"
+        )
+        
+        if st.button("🔄 Mettre à jour Audio & Partition", use_container_width=True):
+            updated = update_from_abc(abc_editor, instrument, use_reverb, use_delay, use_compression)
+            if updated:
+                st.session_state.composition.update(updated)
+                st.session_state.abc_content = abc_editor
+                st.success("✅ Partition mise à jour!")
+                st.rerun()
+        
+        # Partition visuelle
+        st.subheader("👁️ Partition Visuelle")
+        st.components.v1.html(f"""
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.2.2/abcjs-basic-min.js"></script>
+        <div id="paper" style="background: white; padding: 20px; border-radius: 8px;"></div>
+        <script>
+            ABCJS.renderAbc('paper', `{abc_editor}`, {{ responsive: 'resize' }});
+        </script>
+        """, height=400)
+    else:
+        st.info("ℹ️ Composez d'abord une partition dans l'onglet 'Composer'")
+
+with tab3:
+    st.markdown("""
+    ## 🎼 Guide d'Utilisation
+    
+    ### 1. Composer une Musique
+    1. **Uploadez une image** qui vous inspire
+    2. (Optionnel) Ajoutez un **fichier audio** pour influencer le rythme
+    3. Choisissez un **instrument** ou laissez l'IA décider
+    4. Activez les **effets audio** souhaités
+    5. Cliquez sur **COMPOSER LA PARTITION IA**
+    
+    ### 2. Éditer la Partition
+    - Allez dans l'onglet **Éditeur ABC**
+    - Modifiez le code **ABC** 
+    - Cliquez sur **Mettre à jour** pour régénérer l'audio
+    - La partition visuelle se met à jour automatiquement
+    
+    ### 3. Instruments Disponibles
+    - 🎹 **Piano**: Son riche avec harmoniques
+    - 🎛️ **Synth Retro**: Onde carrée vintage
+    - 🎻 **Strings**: Cordes avec vibrato naturel
+    - 🎸 **Bass**: Basse profonde avec sub-octave
+    - 🎸 **Guitar**: Guitare acoustique
+    - 🎺 **Brass**: Cuivres avec harmoniques impaires
+    - 🥁 **Drums**: Percussion/kick drum
+    
+    ### 4. Effets Audio
+    - 🌊 **Reverb**: Ajoute de la profondeur et de l'espace
+    - 🔁 **Delay**: Écho rythmique
+    - 📊 **Compression**: Égalise les dynamiques (recommandé)
+    
+    ### 5. Export
+    - **MIDI**: Pour édition dans votre DAW
+    - **MP3**: Pour partage et écoute
+    
+    ### 💡 Astuces
+    - Le **cache** accélère les requêtes identiques
+    - Consultez les **métriques** dans la sidebar
+    - Expérimentez avec différents instruments et effets !
+    """)
+
+# Footer
+st.divider()
+st.markdown(
+    '<p style="text-align: center; color: #999;">Powered by Gemini AI & Streamlit | Version Streamlit 1.0</p>',
+    unsafe_allow_html=True
+)
