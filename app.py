@@ -3,8 +3,13 @@ import google.generativeai as genai
 import os
 import json
 import re
+import re
 from dotenv import load_dotenv
-import pillow_heif
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pillow_heif = None
 from jsonschema import validate, ValidationError
 from cache import CompositionCache
 from metrics import metrics, logger, log_user_action, track_time
