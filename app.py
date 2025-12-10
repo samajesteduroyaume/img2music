@@ -409,23 +409,29 @@ with tab1:
             # Download buttons
             col_midi, col_mp3 = st.columns(2)
             with col_midi:
-                with open(result['midi'], 'rb') as f:
-                    st.download_button(
-                        "📥 Télécharger MIDI",
-                        f.read(),
-                        file_name="composition.mid",
-                        mime="audio/midi",
-                        use_container_width=True
-                    )
+                if result.get('midi'):
+                    with open(result['midi'], 'rb') as f:
+                        st.download_button(
+                            "📥 Télécharger MIDI",
+                            f.read(),
+                            file_name="composition.mid",
+                            mime="audio/midi",
+                            use_container_width=True
+                        )
+                else:
+                    st.error("❌ Erreur: Export MIDI échoué")
             with col_mp3:
-                with open(result['mp3'], 'rb') as f:
-                    st.download_button(
-                        "📥 Télécharger MP3",
-                        f.read(),
-                        file_name="composition.mp3",
-                        mime="audio/mpeg",
-                        use_container_width=True
-                    )
+                if result.get('mp3'):
+                    with open(result['mp3'], 'rb') as f:
+                        st.download_button(
+                            "📥 Télécharger MP3",
+                            f.read(),
+                            file_name="composition.mp3",
+                            mime="audio/mpeg",
+                            use_container_width=True
+                        )
+                else:
+                    st.warning("⚠️ Export MP3 non disponible (pydub/ffmpeg requis)")
             
             # JSON Debug
             with st.expander("🔍 Détails JSON (Debug)"):
