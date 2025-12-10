@@ -174,7 +174,7 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         content = [prompt, _image]
         if audio_path:
             audio_file = genai.upload_file(path=audio_path)
@@ -391,9 +391,9 @@ with tab1:
         )
         
         if uploaded_image:
-            st.image(uploaded_image, caption="Image uploadée", use_container_width=True)
+            st.image(uploaded_image, caption="Image uploadée", width='stretch')
         
-        compose_button = st.button("✨ COMPOSER LA PARTITION IA", type="primary", use_container_width=True)
+        compose_button = st.button("✨ COMPOSER LA PARTITION IA", type="primary", width='stretch')
     
     with col2:
         st.subheader("🎵 Résultats")
@@ -428,23 +428,26 @@ with tab1:
                             f.read(),
                             file_name="composition.mid",
                             mime="audio/midi",
-                            use_container_width=True
+                            width='stretch'
                         )
                 else:
                     st.error("❌ Erreur: Export MIDI échoué")
             with col_mp3:
                 mp3_path = result.get('mp3')
                 if mp3_path and os.path.isfile(mp3_path):
-                    with open(mp3_path, 'rb') as f:
-                        st.download_button(
-                            "📥 Télécharger MP3",
-                            f.read(),
-                            file_name="composition.mp3",
-                            mime="audio/mpeg",
-                            use_container_width=True
-                        )
+                    try:
+                        with open(mp3_path, 'rb') as f:
+                            st.download_button(
+                                "📥 Télécharger MP3",
+                                f.read(),
+                                file_name="composition.mp3",
+                                mime="audio/mpeg",
+                                width='stretch'
+                            )
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors de l'ouverture du fichier MP3: {e}")
                 else:
-                    st.warning("⚠️ Export MP3 non disponible (pydub/ffmpeg requis)")
+                    st.warning("⚠️ Export MP3 non disponible (ffmpeg requis)")
             
             # JSON Debug
             with st.expander("🔍 Détails JSON (Debug)"):
@@ -461,7 +464,7 @@ with tab2:
             help="Modifiez le code ABC pour personnaliser la partition"
         )
         
-        if st.button("🔄 Mettre à jour Audio & Partition", use_container_width=True):
+        if st.button("🔄 Mettre à jour Audio & Partition", width='stretch'):
             updated = update_from_abc(abc_editor, instrument, use_reverb, use_delay, use_compression)
             if updated:
                 st.session_state.composition.update(updated)
