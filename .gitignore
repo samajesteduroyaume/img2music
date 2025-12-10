@@ -19,31 +19,12 @@ wheels/
 *.egg-info/
 .installed.cfg
 
-# Fichiers de test et debug
-app_test_*.py
-app_debug.py
-app_backup.py
-test_*.py
-debug_*.py
-load_test.py
-list_models.py
+# Fichiers de configuration et d'environnement
 
-# Fichiers de configuration et documentation spécifiques
-HUGGINGFACE_SECRETS.md
-DEPLOYMENT_SUMMARY.md
-TROUBLESHOOTING.md
-TESTING.md
-IMPROVEMENTS_SUMMARY.md
-
-# Fichiers Docker
-Dockerfile.hf
-Dockerfile
-
-# Environnement virtuel
+.venv
 venv/
-.env
-.env.*
-!.env.example
+ENV/
+env/
 
 # Fichiers temporaires
 *.tmp
@@ -59,108 +40,18 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Secrets Streamlit
-.streamlit/secrets.toml
-*.egg
-
-# Virtual Environment
-venv/
-ENV/
-env/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project specific
-*.wav
+# Fichiers de données et médias
 *.mp3
+*.wav
 *.mid
 *.midi
 *.log
-.env
-*.pem
-*.p12
-*.crt
-*.key
 
-# Hugging Face Spaces
-.huggingface/
-.spaces/
-.hfignore
-
-# Streamlit
+# Fichiers de configuration spécifiques à Streamlit
 .streamlit/secrets.toml
 
-# Docker
-Dockerfile
-.dockerignore
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
-
-# Logs
-logs/
-*.log
-
-# Local development
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Media files
-media/
-uploads/
-
-# Static files
-staticfiles/
-*.css
-*.js
-*.map
-
-# Cache
-.cache/
-.pytest_cache/
-.mypy_cache/
-
-# Environment variables
-.env
-.env.local
-.env.development
-.env.test
-.env.production
-
-# VS Code
-.vscode/settings.json
-.vscode/launch.json
-.vscode/extensions.json
-
-# PyCharm
-.idea/workspace.xml
-.idea/misc.xml
-.idea/modules.xml
-.idea/vcs.xml
-.idea/inspectionProfiles/
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Linux
-*~
-.Trash-*
-.nfs*
+# Fichiers de test et debug
+*_test.py
+test_*.py
+*_debug.py
+*_backup.py
