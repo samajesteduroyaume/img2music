@@ -38,6 +38,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Affichage de la configuration actuelle
+st.write("""
+### Configuration de l'application
+L'application est prête à l'emploi.
+""")
+
 # Initialize cache and effects
 if 'composition_cache' not in st.session_state:
     st.session_state.composition_cache = CompositionCache(max_size=100, ttl_seconds=3600)

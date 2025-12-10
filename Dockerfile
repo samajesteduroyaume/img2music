@@ -1,18 +1,19 @@
 # Use Python 3.11 base image
-FROM python:3.11
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    git-lfs \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
-    cmake \
-    rsync \
     libgl1 \
-    && rm -rf /var/lib/apt/lists/* \
-    && git lfs install
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -21,29 +22,21 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-# IMPORTANT: Install Gradio 4.x BEFORE any Hugging Face packages
-RUN pip install --no-cache-dir "gradio>=4.44.0,<5.0.0"
-
-# Install other requirements
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Hugging Face specific packages (but NOT gradio again)
-RUN pip install --no-cache-dir \
-    datasets \
-    "huggingface-hub>=0.30" \
-    "hf-transfer>=0.1.4" \
-    "uvicorn>=0.14.0" \
-    spaces
 
 # Copy application code
 COPY . .
 
-# Create user directory
-RUN mkdir -p /home/user && \
-    ([ -e /home/user/app ] || ln -s /app/ /home/user/app) || true
+# Create a non-root user and switch to it
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 7860
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:7860/ || exit 1
+
 # Run the application
-CMD ["python", "app.py"]
+CMD ["streamlit", "run", "main.py", "--server.port=7860", "--server.address=0.0.0.0"]
