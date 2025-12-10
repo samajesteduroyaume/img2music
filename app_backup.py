@@ -389,7 +389,7 @@ with gr.Blocks(title="Img2Music AI Composer", css=css) as demo:
                         out_mp3 = gr.File(label="📥 MP3 (.mp3)")
             
             gr.Markdown("### 📝 Éditeur de Partition (Format ABC)")
-            abc_editor = gr.Code(language="markdown", label="Code ABC (Modifiable)", lines=10)
+            abc_editor = gr.Textbox(label="Code ABC (Modifiable)", lines=10, max_lines=20)
             btn_update = gr.Button("🔄 Mettre à jour Audio & Partition", variant="secondary")
 
             gr.Markdown("### 👁️ Partition Visuelle")
