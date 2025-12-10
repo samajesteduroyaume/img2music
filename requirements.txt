@@ -1,12 +1,12 @@
-gradio==5.9.1
-google-generativeai==0.8.3
-numpy==2.3.5
-pillow==10.2.0
-python-dotenv==1.0.1
-midiutil==1.2.1
-pillow-heif==0.20.0
-music21==9.1.0
-pydub==0.25.1
-jsonschema==4.23.0
-requests==2.31.0
+gradio>=5.0.0
+google-generativeai>=0.8.0
+numpy<2.0.0
+pillow>=10.0.0
+python-dotenv>=1.0.0
+midiutil>=1.2.0
+pillow-heif>=0.20.0
+music21>=9.1.0
+pydub>=0.25.0
+jsonschema>=4.0.0
+requests>=2.31.0
 
