@@ -30,13 +30,24 @@ except Exception as e:
 # Load environment variables
 load_dotenv()
 
-# Page configuration
+# Server configuration
+import socket
+
+# Get the hostname and IP address
+hostname = socket.gethostname()
+ip_address = socket.gethostbyname(hostname)
+
+# Set the server configuration
 st.set_page_config(
     page_title="Img2Music AI Composer",
     page_icon="🎼",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Set server configuration
+st.set_option('server.port', 7860)
+st.set_option('server.address', '0.0.0.0')
 
 # Affichage de la configuration actuelle
 st.write("""
