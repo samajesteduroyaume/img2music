@@ -463,6 +463,7 @@ with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css, h
 
 if __name__ == "__main__":
     logger.info("Starting Gradio server...")
+    print("🚀 STARTING DEPLOYMENT V4.1 - GRADIO FIX APPLIED", flush=True)
     demo.launch(
         server_name="0.0.0.0", 
         server_port=7860
