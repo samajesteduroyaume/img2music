@@ -18,6 +18,49 @@ var/
 wheels/
 *.egg-info/
 .installed.cfg
+
+# Fichiers de test et debug
+app_test_*.py
+app_debug.py
+app_backup.py
+test_*.py
+debug_*.py
+load_test.py
+list_models.py
+
+# Fichiers de configuration et documentation spécifiques
+HUGGINGFACE_SECRETS.md
+DEPLOYMENT_SUMMARY.md
+TROUBLESHOOTING.md
+TESTING.md
+IMPROVEMENTS_SUMMARY.md
+
+# Fichiers Docker
+Dockerfile.hf
+Dockerfile
+
+# Environnement virtuel
+venv/
+.env
+.env.*
+!.env.example
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.swp
+*~
+
+# Fichiers de cache
+.cache/
+.pytest_cache/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Secrets Streamlit
+.streamlit/secrets.toml
 *.egg
 
 # Virtual Environment

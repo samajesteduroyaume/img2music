@@ -66,9 +66,18 @@ if 'audio_effects' not in st.session_state:
     st.session_state.audio_effects = AudioEffects(sample_rate=44100)
 
 # Gemini Configuration
-API_KEY = os.getenv("GEMINI_API_KEY")
+try:
+    # Essayer d'abord avec les secrets Streamlit (pour la production)
+    API_KEY = st.secrets["gemini"]["api_key"]
+except (KeyError, FileNotFoundError):
+    # Fallback sur les variables d'environnement (pour le développement)
+    API_KEY = os.getenv("GEMINI_API_KEY")
+    if not API_KEY:
+        st.error("❌ Clé API Gemini non configurée. Veuillez configurer les secrets Streamlit ou la variable d'environnement GEMINI_API_KEY.")
+    
 if API_KEY:
     genai.configure(api_key=API_KEY)
+    print("Configuration Gemini chargée avec succès")
 
 # JSON Schema for validation
 def _get_music_schema():
