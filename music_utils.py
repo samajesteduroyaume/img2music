@@ -1,18 +1,21 @@
-import music21
-import numpy as np
-import tempfile
 import os
-import re
+
+# --- PRE-CONFIG ENV ---
+# Doit être fait avant d'importer d'autres modules music21 si possible, ou juste après
+os.environ['MUSIC21_NO_PLAYBACK'] = '1'
+
+import music21
 
 # --- CONFIG MUSIC21 ---
-# Configuration pour environnement contraint (HF Spaces)
-environment = music21.environment.Environment()
-environment['autoDownload'] = 'allow' 
-# On tente d'éviter les écritures dans le home si possible, ou on laisse faire par défaut 
-# mais on évite de bloquer sur le téléchargement de corpus inutiles.
-# Note: Pour la simple création de notes, on n'a pas besoin de corpus/autoDownload.
-# Je désactive autoDownload pour éviter les timeouts/erreurs 500 au startup
-music21.environment.set('autoDownload', 'deny')
+try:
+    # Force la config dans /tmp pour éviter les erreurs de permission
+    music21.environment.set('directoryScratch', '/tmp')
+    music21.environment.set('autoDownload', 'deny')
+    music21.environment.set('writeFormat', 'musicxml') # Default safe
+except Exception as e:
+    print(f"Warning: Could not configure music21 environment: {e}")
+
+# --- SYNTHÉTISEUR (Adapté de l'ancien code) ---
 
 # --- SYNTHÉTISEUR (Adapté de l'ancien code) ---
 class SimpleSynthesizer:
