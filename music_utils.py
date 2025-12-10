@@ -1,4 +1,6 @@
 import os
+import numpy as np
+import tempfile
 
 # --- PRE-CONFIG ENV ---
 # Doit être fait avant d'importer d'autres modules music21 si possible, ou juste après
@@ -17,47 +19,121 @@ except Exception as e:
 
 # --- SYNTHÉTISEUR (Adapté de l'ancien code) ---
 
-# --- SYNTHÉTISEUR (Adapté de l'ancien code) ---
+# --- SYNTHÉTISEUR (Amélioré pour meilleure qualité) ---
 class SimpleSynthesizer:
     def __init__(self, sample_rate=44100):
         self.sr = sample_rate
 
     def get_wave(self, t, freq, instrument):
         if instrument == 'piano':
+            # Piano amélioré avec plus d'harmoniques et enveloppe réaliste
             audio = 0.5 * np.sin(2 * np.pi * freq * t)
             audio += 0.3 * np.sin(2 * np.pi * freq * 2 * t) * np.exp(-t*3)
             audio += 0.2 * np.sin(2 * np.pi * freq * 3 * t) * np.exp(-t*5)
-            # Ajout d'harmoniques pour enrichir
             audio += 0.1 * np.sin(2 * np.pi * freq * 4 * t) * np.exp(-t*7)
+            audio += 0.05 * np.sin(2 * np.pi * freq * 5 * t) * np.exp(-t*9)
+            # Ajout de bruit pour réalisme
+            audio += 0.01 * np.random.randn(len(t)) * np.exp(-t*10)
             return audio * np.exp(-t*2)
+        
         elif instrument == 'synth_retro':
+            # Synthé rétro avec filtre passe-bas simulé
             phase = (freq * t) % 1.0
-            audio = 2.0 * (phase - 0.5) 
+            square = 2.0 * (phase - 0.5)
+            # Ajout d'une onde triangle pour adoucir
+            triangle = 2.0 * np.abs(2.0 * (phase - 0.5)) - 1.0
+            audio = 0.7 * square + 0.3 * triangle
             return audio * 0.5
+        
         elif instrument == 'strings':
-            return 0.8 * np.sin(2 * np.pi * freq * t) + 0.2 * np.sin(2 * np.pi * freq * 2 * t)
+            # Cordes avec vibrato et plusieurs harmoniques
+            vibrato = 1.0 + 0.02 * np.sin(2 * np.pi * 5 * t)  # 5Hz vibrato
+            audio = 0.6 * np.sin(2 * np.pi * freq * vibrato * t)
+            audio += 0.25 * np.sin(2 * np.pi * freq * 2 * vibrato * t)
+            audio += 0.1 * np.sin(2 * np.pi * freq * 3 * vibrato * t)
+            audio += 0.05 * np.sin(2 * np.pi * freq * 4 * vibrato * t)
+            return audio * 0.8
+        
         elif instrument == 'bass':
-            return 0.6 * np.sin(2 * np.pi * freq * t) + 0.4 * np.sign(np.sin(2 * np.pi * freq * 0.5 * t))
+            # Basse avec sub-harmonique et saturation douce
+            audio = 0.7 * np.sin(2 * np.pi * freq * t)
+            audio += 0.3 * np.sin(2 * np.pi * freq * 0.5 * t)  # Sub octave
+            # Saturation douce (tanh)
+            audio = np.tanh(audio * 1.5)
+            return audio * 0.6
+        
+        elif instrument == 'guitar':
+            # Guitare acoustique avec harmoniques riches
+            audio = 0.5 * np.sin(2 * np.pi * freq * t)
+            audio += 0.3 * np.sin(2 * np.pi * freq * 2 * t)
+            audio += 0.15 * np.sin(2 * np.pi * freq * 3 * t)
+            audio += 0.1 * np.sin(2 * np.pi * freq * 4 * t)
+            audio += 0.05 * np.sin(2 * np.pi * freq * 5 * t)
+            # Ajout de bruit pour le picking
+            audio += 0.02 * np.random.randn(len(t)) * np.exp(-t*15)
+            return audio * 0.7
+        
+        elif instrument == 'brass':
+            # Cuivres avec harmoniques impaires dominantes
+            audio = 0.6 * np.sin(2 * np.pi * freq * t)
+            audio += 0.4 * np.sin(2 * np.pi * freq * 3 * t)
+            audio += 0.2 * np.sin(2 * np.pi * freq * 5 * t)
+            audio += 0.1 * np.sin(2 * np.pi * freq * 7 * t)
+            # Vibrato lent pour réalisme
+            vibrato = 1.0 + 0.01 * np.sin(2 * np.pi * 4 * t)
+            audio *= vibrato
+            return audio * 0.75
+        
+        elif instrument == 'drums':
+            # Percussion/kick drum (utilise freq comme pitch de base)
+            # Kick drum avec sweep de fréquence
+            freq_sweep = freq * (1 + 2 * np.exp(-t * 20))
+            audio = np.sin(2 * np.pi * freq_sweep * t)
+            # Ajout de bruit pour le snap
+            audio += 0.3 * np.random.randn(len(t)) * np.exp(-t * 10)
+            return audio * 0.8
+        
         else:
+            # Sinus pur par défaut
             return 0.5 * np.sin(2 * np.pi * freq * t)
 
     def generate_note(self, freq, duration, instrument='piano', velocity=1.0):
         t = np.linspace(0, duration, int(self.sr * duration), endpoint=False)
         raw_audio = self.get_wave(t, freq, instrument)
         
-        # Enveloppe
+        # Enveloppes améliorées ADSR
+        attack_time = min(0.01, duration * 0.1)  # 10ms ou 10% de la durée
+        decay_time = min(0.05, duration * 0.15)
+        release_time = min(0.1, duration * 0.2)
+        
+        attack_samples = int(attack_time * self.sr)
+        decay_samples = int(decay_time * self.sr)
+        release_samples = int(release_time * self.sr)
+        
+        env = np.ones_like(t)
+        
         if instrument == 'strings':
-            env = np.minimum(t / (duration*0.2), 1.0)
-            if len(env) > int(0.2*self.sr):
-                 env[-int(0.2*self.sr):] *= np.linspace(1, 0, int(0.2*self.sr))
+            # Enveloppe ADSR pour cordes
+            if len(env) > attack_samples:
+                env[:attack_samples] = np.linspace(0, 1, attack_samples)
+            if len(env) > attack_samples + decay_samples:
+                env[attack_samples:attack_samples+decay_samples] = np.linspace(1, 0.8, decay_samples)
+            if len(env) > release_samples:
+                env[-release_samples:] *= np.linspace(1, 0, release_samples)
+        
         elif instrument == 'piano':
-             env = np.exp(-t * 2)
+            # Enveloppe exponentielle naturelle pour piano
+            env = np.exp(-t * 2.5)
+            # Attack rapide
+            if len(env) > attack_samples:
+                env[:attack_samples] *= np.linspace(0, 1, attack_samples)
+        
         else:
-            env = np.ones_like(t)
-            fade_len = int(0.05 * self.sr)
-            if len(env) > fade_len:
-                env[-fade_len:] *= np.linspace(1, 0, fade_len)
-                env[:fade_len] *= np.linspace(0, 1, fade_len)
+            # Enveloppe générique avec fade in/out
+            if len(env) > attack_samples:
+                env[:attack_samples] *= np.linspace(0, 1, attack_samples)
+            if len(env) > release_samples:
+                env[-release_samples:] *= np.linspace(1, 0, release_samples)
         
         return raw_audio * env * velocity
 
