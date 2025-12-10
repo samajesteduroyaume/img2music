@@ -337,7 +337,7 @@ def get_metrics_display():
 - ❌ Erreurs: {stats['errors']}
 """
 
-with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css) as demo:
+with gr.Blocks(title="Img2Music AI Composer", theme=gr.themes.Soft(), css=css, head=js_head) as demo:
     gr.Markdown("# 🎼 Img2Music: True AI Composer Pro")
     gr.Markdown("L'IA analyse l'image et écrit la partition. Vous pouvez ensuite **éditer la partition** et appliquer des **effets audio** professionnels !")
     
@@ -465,9 +465,7 @@ if __name__ == "__main__":
     logger.info("Starting Gradio server...")
     demo.launch(
         server_name="0.0.0.0", 
-        server_port=7860,
-        css=css,
-        head=js_head
+        server_port=7860
     )
     logger.info("Gradio server stopped.")
 
