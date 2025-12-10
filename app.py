@@ -174,7 +174,7 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-pro')
         content = [prompt, _image]
         if audio_path:
             audio_file = genai.upload_file(path=audio_path)
