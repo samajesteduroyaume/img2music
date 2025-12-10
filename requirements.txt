@@ -1,0 +1,9 @@
+gradio
+google-generativeai
+numpy
+scipy
+pillow
+python-dotenv
+midiutil
+pillow-heif
+music21
