@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import time
 import numpy as np
 from PIL import Image
+from google.api_core.exceptions import NotFound
 
 # Import app modules
 from jsonschema import validate, ValidationError
@@ -35,15 +36,8 @@ except Exception as e:
     music_utils_error = str(e)
     st.error(f"❌ Erreur critique: music_utils n'a pas pu être chargé: {e}")
 
-# Load environment variables
+// Load environment variables
 load_dotenv()
-
-# Debug: Vérifier le chargement de la clé API
-print(f"GEMINI_API_KEY loaded: {os.getenv('GEMINI_API_KEY') is not None}")
-if os.getenv('GEMINI_API_KEY'):
-    print("Clé API chargée avec succès depuis le fichier .env")
-else:
-    print("⚠️ Attention: La clé API n'a pas pu être chargée")
 
 # Server configuration
 import socket
@@ -77,12 +71,12 @@ elif AudioEffects is None:
 
 # Gemini Configuration
 API_KEY = os.getenv("GEMINI_API_KEY")
-if not API_KEY:
-    st.error("❌ Clé API Gemini non configurée. Veuillez configurer la variable d'environnement GEMINI_API_KEY dans le fichier .env.")
+MODEL_ID = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
-if API_KEY:
+if not API_KEY:
+    st.error("❌ Clé API Gemini non configurée. Veuillez configurer la variable d'environnement GEMINI_API_KEY (local: .env, Streamlit Cloud: secrets/env vars).")
+else:
     genai.configure(api_key=API_KEY)
-    print("Configuration Gemini chargée avec succès")
 
 # JSON Schema for validation
 def _get_music_schema():
@@ -184,7 +178,7 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-002')
+        model = genai.GenerativeModel(MODEL_ID)
         content = [prompt, _image]
         if audio_path:
             audio_file = genai.upload_file(path=audio_path)
@@ -215,6 +209,15 @@ def analyze_with_gemini(_image, audio_path=None):
                 return None, f"❌ Erreur validation JSON: {ve.message}"
         
         return None, "❌ Erreur format JSON Gemini"
+    except NotFound as e:
+        logger.error(f"Model not found: {e}")
+        metrics.record_error("api_model_not_found", str(e))
+        return None, (
+            "❌ Erreur API Gemini: le modèle configuré n'est pas disponible. "
+            f"Modèle actuel: '{MODEL_ID}'.\n"
+            "Veuillez ouvrir Google AI Studio, vérifier un modèle compatible avec generateContent, "
+            "puis définir la variable d'environnement GEMINI_MODEL en conséquence."
+        )
     except Exception as e:
         logger.exception("API call failed")
         metrics.record_error("api", str(e))
