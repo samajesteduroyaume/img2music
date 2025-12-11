@@ -36,7 +36,7 @@ except Exception as e:
     music_utils_error = str(e)
     st.error(f"❌ Erreur critique: music_utils n'a pas pu être chargé: {e}")
 
-// Load environment variables
+# Load environment variables
 load_dotenv()
 
 # Server configuration
