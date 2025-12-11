@@ -16,7 +16,15 @@ from PIL import Image
 from jsonschema import validate, ValidationError
 from cache import CompositionCache
 from metrics import metrics, logger, log_user_action, track_time
-from audio_effects import AudioEffects
+
+# Safe import for audio_effects
+AudioEffects = None
+audio_effects_error = None
+try:
+    from audio_effects import AudioEffects
+except Exception as e:
+    audio_effects_error = str(e)
+    st.error(f"❌ Erreur critique: audio_effects n'a pas pu être chargé: {e}")
 
 # Safe import for music_utils
 music_utils = None
@@ -62,8 +70,10 @@ L'application est prête à l'emploi.
 # Initialize cache and effects
 if 'composition_cache' not in st.session_state:
     st.session_state.composition_cache = CompositionCache(max_size=100, ttl_seconds=3600)
-if 'audio_effects' not in st.session_state:
+if 'audio_effects' not in st.session_state and AudioEffects is not None:
     st.session_state.audio_effects = AudioEffects(sample_rate=44100)
+elif AudioEffects is None:
+    st.warning("⚠️ Audio effects non disponibles. La composition utilisera l'audio brut.")
 
 # Gemini Configuration
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -174,7 +184,7 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-002')
         content = [prompt, _image]
         if audio_path:
             audio_file = genai.upload_file(path=audio_path)
@@ -243,24 +253,27 @@ def process_composition(image, audio_file, instrument, use_reverb, use_delay, us
     
     with st.spinner("🎵 Synthèse audio..."):
         wav_data = music_utils.score_to_audio(score, inst)
-        
-        # Apply effects
-        sr, audio_array = wav_data
-        audio_float = audio_array.astype(np.float32) / 32767.0
-        
-        processed_audio = st.session_state.audio_effects.apply_effects_chain(
-            audio_float,
-            use_reverb=use_reverb,
-            use_delay=use_delay,
-            use_compression=use_compression,
-            room_size=0.6,
-            delay_time=0.25,
-            feedback=0.35,
-            delay_mix=0.25
-        )
-        
-        processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
-        wav_data = (sr, processed_audio_int16)
+
+        # Apply effects if available
+        if 'audio_effects' in st.session_state and st.session_state.audio_effects is not None:
+            sr, audio_array = wav_data
+            audio_float = audio_array.astype(np.float32) / 32767.0
+
+            processed_audio = st.session_state.audio_effects.apply_effects_chain(
+                audio_float,
+                use_reverb=use_reverb,
+                use_delay=use_delay,
+                use_compression=use_compression,
+                room_size=0.6,
+                delay_time=0.25,
+                feedback=0.35,
+                delay_mix=0.25
+            )
+
+            processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
+            wav_data = (sr, processed_audio_int16)
+        else:
+            st.info("ℹ️ Effets audio non appliqués (module manquant)")
     
     with st.spinner("💾 Export MIDI et MP3..."):
         midi_path = music_utils.score_to_midi(score)
@@ -290,23 +303,24 @@ def update_from_abc(abc_content, instrument, use_reverb, use_delay, use_compress
         inst = instrument if instrument != "Auto-Detect" else 'piano'
         
         wav_data = music_utils.score_to_audio(score, inst)
-        
-        sr, audio_array = wav_data
-        audio_float = audio_array.astype(np.float32) / 32767.0
-        
-        processed_audio = st.session_state.audio_effects.apply_effects_chain(
-            audio_float,
-            use_reverb=use_reverb,
-            use_delay=use_delay,
-            use_compression=use_compression,
-            room_size=0.6,
-            delay_time=0.25,
-            feedback=0.35,
-            delay_mix=0.25
-        )
-        
-        processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
-        wav_data = (sr, processed_audio_int16)
+
+        if 'audio_effects' in st.session_state and st.session_state.audio_effects is not None:
+            sr, audio_array = wav_data
+            audio_float = audio_array.astype(np.float32) / 32767.0
+
+            processed_audio = st.session_state.audio_effects.apply_effects_chain(
+                audio_float,
+                use_reverb=use_reverb,
+                use_delay=use_delay,
+                use_compression=use_compression,
+                room_size=0.6,
+                delay_time=0.25,
+                feedback=0.35,
+                delay_mix=0.25
+            )
+
+            processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
+            wav_data = (sr, processed_audio_int16)
         
         midi_path = music_utils.score_to_midi(score)
         mp3_path = music_utils.save_audio_to_mp3(wav_data[0], wav_data[1])
@@ -434,7 +448,7 @@ with tab1:
                     st.error("❌ Erreur: Export MIDI échoué")
             with col_mp3:
                 mp3_path = result.get('mp3')
-                if mp3_path and os.path.isfile(mp3_path):
+                if mp3_path and mp3_path != "None" and os.path.isfile(mp3_path):
                     try:
                         with open(mp3_path, 'rb') as f:
                             st.download_button(

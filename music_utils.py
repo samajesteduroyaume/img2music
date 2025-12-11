@@ -236,7 +236,7 @@ def music21_to_abc(score):
             tempo = 120
 
             # Chercher la métadonnée de tempo
-            for element in score.flat:
+            for element in score.flatten():
                 if hasattr(element, 'number'):
                     tempo = element.number
                     break
@@ -287,7 +287,7 @@ def score_to_audio(score, instrument_name='piano'):
     
     parts = score.parts
     if not parts:
-        parts = [score.flat] # Si pas de parts, on prend tout à plat
+        parts = [score.flatten()] # Si pas de parts, on prend tout à plat
 
     for part in score.parts:
         # Determine instrument roughly based on part name or ID
@@ -301,7 +301,7 @@ def score_to_audio(score, instrument_name='piano'):
             inst = instrument_name
             
         # Flatten part to get offset/notes
-        flat_part = part.flat
+        flat_part = part.flatten()
         
         for element in flat_part.notes:
             start_beat = element.offset
