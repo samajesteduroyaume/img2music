@@ -452,7 +452,11 @@ with tab1:
                     st.info(f"💡 **Raisonnement de l'IA:** {analysis['reasoning']}")
             
             # Audio player
-            st.audio(result['audio'][1], format='audio/wav', sample_rate=result['audio'][0])
+            try:
+                st.audio(result['audio'][1], format='audio/wav', sample_rate=result['audio'][0])
+            except Exception as e:
+                st.error(f"Erreur lors de la lecture audio: {e}")
+                st.caption("Détails: Le fichier audio généré semble invalide ou incompatible.")
             
             # Download buttons
             col_midi, col_mp3 = st.columns(2)
