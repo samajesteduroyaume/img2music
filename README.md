@@ -33,13 +33,38 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-## 🔑 Configuration
+## 🔑 Configuration des clés API
 
-Créez un fichier `.env` avec votre clé API Gemini :
+### Pour le développement local :
+
+1. Créez un fichier `.env` à la racine du projet :
+
+```bash
+cp .env.example .env
+```
+
+2. Modifiez le fichier `.env` et ajoutez votre clé API Gemini :
 
 ```
 GEMINI_API_KEY=votre_clé_api_ici
 ```
+
+### Pour le déploiement sur Streamlit Cloud :
+
+1. Allez dans les paramètres de votre application Streamlit
+2. Accédez à l'onglet "Secrets"
+3. Ajoutez votre clé API au format :
+
+```
+[gemini]
+api_key = "votre_clé_api_ici"
+```
+
+### Sécurité importante :
+- Ne partagez jamais votre clé API
+- Ne committez jamais votre clé API dans le dépôt
+- Si vous avez accidentellement exposé une clé, révoquez-la immédiatement depuis la [Google Cloud Console](https://console.cloud.google.com/)
+- Utilisez toujours des variables d'environnement ou des gestionnaires de secrets pour stocker les clés API
 
 ## 📦 Dépendances Principales
 

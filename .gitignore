@@ -20,10 +20,15 @@ wheels/
 .installed.cfg
 
 # Fichiers de configuration et d'environnement
-
+.env
+.secrets.toml
 .venv
 venv/
 ENV/
+
+# Fichiers de configuration Streamlit
+.streamlit/secrets.toml
+secrets.toml
 env/
 
 # Fichiers temporaires
