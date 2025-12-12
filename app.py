@@ -3,7 +3,7 @@ Img2Music - AI Music Composer
 Streamlit Version
 """
 import streamlit as st
-import google.generativeai as genai
+from mistralai import Mistral
 import os
 import json
 import re
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import time
 import numpy as np
 from PIL import Image
-from google.api_core.exceptions import NotFound
+import base64
 
 # Import app modules
 from jsonschema import validate, ValidationError
@@ -69,48 +69,48 @@ if 'audio_effects' not in st.session_state and AudioEffects is not None:
 elif AudioEffects is None:
     st.warning("⚠️ Audio effects non disponibles. La composition utilisera l'audio brut.")
 
-def get_gemini_config():
-    """Récupère la configuration Gemini de manière sécurisée."""
+def get_mistral_config():
+    """Récupère la configuration Mistral de manière sécurisée."""
     # 1. Vérifier d'abord les variables d'environnement
-    api_key = os.getenv("GEMINI_API_KEY")
-    model_id = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
+    api_key = os.getenv("MISTRAL_API_KEY")
+    model_id = os.getenv("MISTRAL_MODEL", "pixtral-12b-2409")
     
     # 2. Si pas dans les variables d'environnement, vérifier les secrets Streamlit
-    if not api_key and "gemini" in st.secrets and "api_key" in st.secrets.gemini:
-        api_key = st.secrets.gemini.api_key
+    if not api_key and "mistral" in st.secrets and "api_key" in st.secrets.mistral:
+        api_key = st.secrets.mistral.api_key
     
-    if not model_id and "gemini" in st.secrets and "model" in st.secrets.gemini:
-        model_id = st.secrets.gemini.model or "models/gemini-2.5-flash"
+    if not model_id and "mistral" in st.secrets and "model" in st.secrets.mistral:
+        model_id = st.secrets.mistral.model or "pixtral-12b-2409"
     
     # 3. Valider la clé API
     if not api_key:
         st.error("""
-        ❌ Clé API Gemini non configurée.
+        ❌ Clé API Mistral non configurée.
         
         Configuration requise (choisissez une méthode) :
         
         1. **Variables d'environnement** (recommandé pour le développement local) :
            ```bash
            # Dans .env
-           GEMINI_API_KEY=votre_clé_ici
-           GEMINI_MODEL=models/gemini-2.5-flash
+           MISTRAL_API_KEY=votre_clé_ici
+           MISTRAL_MODEL=pixtral-12b-2409
            ```
            
         2. **Secrets Streamlit** (pour le déploiement) :
            ```toml
            # Dans .streamlit/secrets.toml
-           [gemini]
+           [mistral]
            api_key = "votre_clé_ici"
-           model = "models/gemini-2.5-flash"
+           model = "pixtral-12b-2409"
            ```
         """)
         st.stop()
     
     return api_key, model_id
 
-# Configuration Gemini
-API_KEY, MODEL_ID = get_gemini_config()
-genai.configure(api_key=API_KEY)
+# Configuration Mistral
+API_KEY, MODEL_ID = get_mistral_config()
+mistral_client = Mistral(api_key=API_KEY)
 
 # JSON Schema for validation
 def _get_music_schema():
@@ -171,10 +171,10 @@ def _get_music_schema():
 
 # --- AI LOGIC ---
 @st.cache_data(show_spinner=False)
-def analyze_with_gemini(_image, audio_path=None):
-    """Analyze image with Gemini AI to generate music composition."""
+def analyze_with_mistral(_image, audio_path=None):
+    """Analyze image with Mistral AI to generate music composition."""
     # Vérifier la configuration à chaque appel
-    current_api_key = os.getenv("GEMINI_API_KEY") or (st.secrets.get("gemini", {}).get("api_key") if "gemini" in st.secrets else None)
+    current_api_key = os.getenv("MISTRAL_API_KEY") or (st.secrets.get("mistral", {}).get("api_key") if "mistral" in st.secrets else None)
     
     if not current_api_key or current_api_key != API_KEY:
         st.cache_data.clear()  # Vider le cache si la clé a changé
@@ -227,19 +227,40 @@ def analyze_with_gemini(_image, audio_path=None):
     """
     
     try:
-        model = genai.GenerativeModel(MODEL_ID)
-        content = [prompt, _image]
-        if audio_path:
-            audio_file = genai.upload_file(path=audio_path)
-            content.append(audio_file)
+        # Convert PIL Image to base64
+        import io
+        buffered = io.BytesIO()
+        _image.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode()
         
-        response = model.generate_content(
-            content,
-            request_options={"timeout": 30}
+        # Prepare messages for Mistral Vision API
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": f"data:image/png;base64,{img_base64}"
+                    }
+                ]
+            }
+        ]
+        
+        # Call Mistral API
+        response = mistral_client.chat.complete(
+            model=MODEL_ID,
+            messages=messages
         )
         
+        # Extract response text
+        response_text = response.choices[0].message.content
+        
         # Extract JSON from response
-        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if match:
             parsed_json = json.loads(match.group(0))
             
@@ -257,20 +278,11 @@ def analyze_with_gemini(_image, audio_path=None):
                 metrics.record_error("validation", str(ve))
                 return None, f"❌ Erreur validation JSON: {ve.message}"
         
-        return None, "❌ Erreur format JSON Gemini"
-    except NotFound as e:
-        logger.error(f"Model not found: {e}")
-        metrics.record_error("api_model_not_found", str(e))
-        return None, (
-            "❌ Erreur API Gemini: le modèle configuré n'est pas disponible. "
-            f"Modèle actuel: '{MODEL_ID}'.\n"
-            "Veuillez ouvrir Google AI Studio, vérifier un modèle compatible avec generateContent, "
-            "puis définir la variable d'environnement GEMINI_MODEL en conséquence."
-        )
+        return None, "❌ Erreur format JSON Mistral"
     except Exception as e:
         logger.exception("API call failed")
         metrics.record_error("api", str(e))
-        return None, f"❌ Erreur API: {e}"
+        return None, f"❌ Erreur API Mistral: {e}"
 
 def process_composition(image, audio_file, instrument, use_reverb, use_delay, use_compression):
     """Process image and generate music composition."""
@@ -281,7 +293,7 @@ def process_composition(image, audio_file, instrument, use_reverb, use_delay, us
     start_time = time.time()
     
     with st.spinner("🎨 Analyse de l'image avec l'IA..."):
-        analysis, msg = analyze_with_gemini(image, audio_file)
+        analysis, msg = analyze_with_mistral(image, audio_file)
     
     if not analysis:
         # Check for critical errors (API Key issues)
