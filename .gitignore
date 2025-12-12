@@ -20,7 +20,7 @@ wheels/
 .installed.cfg
 
 # Fichiers de configuration et d'environnement
-
+.env
 .venv
 venv/
 ENV/
