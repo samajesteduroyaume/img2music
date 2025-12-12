@@ -83,9 +83,12 @@ def _get_music_schema():
     """Returns the JSON schema for music composition validation."""
     return {
         "type": "object",
-        "required": ["mood", "tempo", "tracks"],
+        "required": ["mood", "tempo", "key", "time_signature", "reasoning", "tracks"],
         "properties": {
             "mood": {"type": "string"},
+            "reasoning": {"type": "string"},
+            "key": {"type": "string"},
+            "time_signature": {"type": "string"},
             "tempo": {"type": "number", "minimum": 40, "maximum": 240},
             "suggested_instrument": {"type": "string"},
             "tracks": {
@@ -144,37 +147,42 @@ def analyze_with_gemini(_image, audio_path=None):
     
     prompt = """
     Act as a professional music composer.
-    Analyze the image (and audio if provided) and compose a unique short musical piece (approx 15-20s duration).
-    If audio is provided, use its rhythm and mood to influence the composition.
+    Analyze the image (and audio if provided) to detect the exact emotion, atmosphere, and rhythmic feel.
+    Compose a unique musical piece (approx 15-20s) that perfectly matches this analysis.
+    
+    1. Determine the Mood (e.g., "Melancholic Solitude", "Energetic Joy", "Dark Mystery").
+    2. Select the best Musical Key (e.g., "C Minor", "F# Major", "D Dorian").
+    3. Select a Time Signature (e.g., "4/4", "3/4", "6/8").
+    4. Provide a brief "Reasoning" explaining why this music fits the image.
     
     You MUST output valid JSON following this EXACT structure:
     {
-      "mood": "Description of mood",
-      "tempo": 100,
+      "mood": "Ethereal Calm",
+      "reasoning": "The soft pastel colors and misty landscape suggest a slow, dreamlike quality, best expressed in a major key with a flowing 3/4 rhythm.",
+      "key": "Eb Major",
+      "time_signature": "3/4",
+      "tempo": 85,
       "suggested_instrument": "piano",
       "tracks": {
         "melody": [
-          {"note": "C4", "duration": 1.0},
-          {"note": "E4", "duration": 0.5},
-          {"note": "G4", "duration": 0.5},
-          {"note": "REST", "duration": 1.0}
+          {"note": "Eb4", "duration": 1.0},
+          {"note": "G4", "duration": 1.0},
+          {"note": "Bb4", "duration": 1.0}
         ],
         "bass": [
-          {"note": "C2", "duration": 2.0},
-          {"note": "G2", "duration": 2.0}
+          {"note": "Eb2", "duration": 3.0}
         ],
         "chords": [
-          {"notes": ["C3", "E3", "G3"], "duration": 4.0},
-          {"notes": ["F3", "A3", "C4"], "duration": 4.0}
+          {"notes": ["Eb3", "G3", "Bb3"], "duration": 3.0}
         ]
       }
     }
     
     Rules:
-    - Notes format: "C#4", "Bb3", "F5". Use "REST" for silence.
-    - Duration is in beats (0.25, 0.5, 1.0, 2.0, 4.0).
-    - Ensure melody, bass, and chords have roughly the same total duration.
-    - Be creative with the melody (don't just go up and down scales).
+    - Notes format: "C#4", "Bb3". Use "REST" for silence.
+    - Duration is in beats (0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0).
+    - Ensure melody, bass, and chords line up rhythmically (total duration matches).
+    - Melody should be catchy and expressive.
     """
     
     try:
@@ -427,9 +435,21 @@ with tab1:
                 st.session_state.composition = result
                 st.session_state.abc_content = result['abc']
         
-        # Display results if available
+            # Display results if available
         if 'composition' in st.session_state and st.session_state.composition:
             result = st.session_state.composition
+            analysis = result.get('json', {})
+            
+            # --- AI Insights Display ---
+            with st.expander("🧠 Analyse de l'IA (Détails)", expanded=True):
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Emotion", analysis.get('mood', 'N/A'))
+                c2.metric("Tonalité", analysis.get('key', 'C Major'))
+                c3.metric("Tempo", f"{analysis.get('tempo', 120)} BPM")
+                c4.metric("Signature", analysis.get('time_signature', '4/4'))
+                
+                if 'reasoning' in analysis:
+                    st.info(f"💡 **Raisonnement de l'IA:** {analysis['reasoning']}")
             
             # Audio player
             st.audio(result['audio'][1], format='audio/wav', sample_rate=result['audio'][0])
