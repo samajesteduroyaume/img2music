@@ -69,22 +69,48 @@ if 'audio_effects' not in st.session_state and AudioEffects is not None:
 elif AudioEffects is None:
     st.warning("⚠️ Audio effects non disponibles. La composition utilisera l'audio brut.")
 
-# Gemini Configuration
-API_KEY = os.getenv("GEMINI_API_KEY")
-if not API_KEY and "GEMINI_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
+def get_gemini_config():
+    """Récupère la configuration Gemini de manière sécurisée."""
+    # 1. Vérifier d'abord les variables d'environnement
+    api_key = os.getenv("GEMINI_API_KEY")
+    model_id = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
+    
+    # 2. Si pas dans les variables d'environnement, vérifier les secrets Streamlit
+    if not api_key and "gemini" in st.secrets and "api_key" in st.secrets.gemini:
+        api_key = st.secrets.gemini.api_key
+    
+    if not model_id and "gemini" in st.secrets and "model" in st.secrets.gemini:
+        model_id = st.secrets.gemini.model or "models/gemini-2.5-flash"
+    
+    # 3. Valider la clé API
+    if not api_key:
+        st.error("""
+        ❌ Clé API Gemini non configurée.
+        
+        Configuration requise (choisissez une méthode) :
+        
+        1. **Variables d'environnement** (recommandé pour le développement local) :
+           ```bash
+           # Dans .env
+           GEMINI_API_KEY=votre_clé_ici
+           GEMINI_MODEL=models/gemini-2.5-flash
+           ```
+           
+        2. **Secrets Streamlit** (pour le déploiement) :
+           ```toml
+           # Dans .streamlit/secrets.toml
+           [gemini]
+           api_key = "votre_clé_ici"
+           model = "models/gemini-2.5-flash"
+           ```
+        """)
+        st.stop()
+    
+    return api_key, model_id
 
-MODEL_ID = os.getenv("GEMINI_MODEL")
-if not MODEL_ID:
-    if "GEMINI_MODEL" in st.secrets:
-        MODEL_ID = st.secrets["GEMINI_MODEL"]
-    else:
-        MODEL_ID = "models/gemini-2.5-flash"
-
-if not API_KEY:
-    st.error("❌ Clé API Gemini non configurée. Veuillez configurer la variable d'environnement GEMINI_API_KEY (local: .env, Streamlit Cloud: secrets/env vars).")
-else:
-    genai.configure(api_key=API_KEY)
+# Configuration Gemini
+API_KEY, MODEL_ID = get_gemini_config()
+genai.configure(api_key=API_KEY)
 
 # JSON Schema for validation
 def _get_music_schema():
@@ -147,9 +173,16 @@ def _get_music_schema():
 @st.cache_data(show_spinner=False)
 def analyze_with_gemini(_image, audio_path=None):
     """Analyze image with Gemini AI to generate music composition."""
+    # Vérifier la configuration à chaque appel
+    current_api_key = os.getenv("GEMINI_API_KEY") or (st.secrets.get("gemini", {}).get("api_key") if "gemini" in st.secrets else None)
+    
+    if not current_api_key or current_api_key != API_KEY:
+        st.cache_data.clear()  # Vider le cache si la clé a changé
+        st.rerun()  # Redémarrer pour charger la nouvelle configuration
+    
     if not API_KEY:
-        logger.warning("API key not configured")
-        return None, "⚠️ Configurez GEMINI_API_KEY."
+        logger.error("Configuration de l'API manquante")
+        return None, "❌ Erreur de configuration de l'API. Veuillez vérifier vos paramètres."
     
     start_time = time.time()
     
@@ -282,7 +315,15 @@ def process_composition(image, audio_file, instrument, use_reverb, use_delay, us
         # Apply effects if available
         if 'audio_effects' in st.session_state and st.session_state.audio_effects is not None:
             sr, audio_array = wav_data
-            audio_float = audio_array.astype(np.float32) / 32767.0
+            
+            # Convertir en float32 et normaliser si nécessaire
+            if audio_array.dtype != np.float32:
+                if np.issubdtype(audio_array.dtype, np.integer):
+                    audio_float = audio_array.astype(np.float32) / np.iinfo(audio_array.dtype).max
+                else:
+                    audio_float = audio_array.astype(np.float32)
+            else:
+                audio_float = audio_array
 
             processed_audio = st.session_state.audio_effects.apply_effects_chain(
                 audio_float,
@@ -295,10 +336,29 @@ def process_composition(image, audio_file, instrument, use_reverb, use_delay, us
                 delay_mix=0.25
             )
 
+            # S'assurer que le signal est dans la plage [-1, 1]
+            processed_audio = np.clip(processed_audio, -1.0, 1.0)
+            
+            # Convertir en int16 pour la sortie
             processed_audio_int16 = (processed_audio * 32767).astype(np.int16)
-            wav_data = (sr, processed_audio_int16)
+            
+            # S'assurer que le taux d'échantillonnage est valide
+            if not (0 < sr <= 65535):
+                sr = 44100  # Valeur par défaut sûre
+                
+            # S'assurer que les données sont dans le bon format
+            if len(processed_audio_int16.shape) == 2 and processed_audio_int16.shape[0] < processed_audio_int16.shape[1]:
+                processed_audio_int16 = processed_audio_int16.T
+                
+            wav_data = (int(sr), processed_audio_int16)
         else:
             st.info("ℹ️ Effets audio non appliqués (module manquant)")
+            
+            # S'assurer que le taux d'échantillonnage est valide même sans effets
+            sr, audio_data = wav_data
+            if not (0 < sr <= 65535):
+                sr = 44100
+                wav_data = (sr, audio_data)
     
     with st.spinner("💾 Export MIDI et MP3..."):
         midi_path = music_utils.score_to_midi(score)
@@ -467,16 +527,33 @@ with tab1:
             
             # Audio player
             try:
-                audio_data = result['audio'][1]
-                sample_rate = result['audio'][0]
+                # Récupérer les données audio et le taux d'échantillonnage
+                if isinstance(result['audio'], (list, tuple)) and len(result['audio']) == 2:
+                    sr, audio_data = result['audio']
+                else:
+                    # Format inattendu, essayer de récupérer les données différemment
+                    audio_data = result['audio']
+                    sr = 44100  # Valeur par défaut
                 
-                # Safety check: Ensure standard shape (samples, channels)
-                if isinstance(audio_data, np.ndarray):
-                    # If data looks like (channels, samples) e.g. (2, 44100), transpose it
-                    if len(audio_data.shape) == 2 and audio_data.shape[0] < audio_data.shape[1]:
-                        audio_data = audio_data.T
+                # S'assurer que le taux d'échantillonnage est valide
+                if not (0 < sr <= 65535):
+                    sr = 44100  # Valeur par défaut sûre
                 
-                st.audio(audio_data, format='audio/wav', sample_rate=sample_rate)
+                # S'assurer que les données audio sont dans un format valide
+                if not isinstance(audio_data, np.ndarray):
+                    audio_data = np.array(audio_data)
+                
+                # Convertir en int16 si nécessaire
+                if audio_data.dtype != np.int16:
+                    if np.issubdtype(audio_data.dtype, np.floating):
+                        # Convertir de float [-1, 1] à int16
+                        audio_data = (audio_data * 32767).astype(np.int16)
+                    else:
+                        # Convertir d'autres formats entiers à int16
+                        audio_data = audio_data.astype(np.int16)
+                
+                # Afficher l'audio avec le bon format
+                st.audio(audio_data, format='audio/wav', sample_rate=int(sr))
             except Exception as e:
                 st.error(f"Erreur lors de la lecture audio: {e}")
                 if isinstance(result['audio'][1], np.ndarray):
