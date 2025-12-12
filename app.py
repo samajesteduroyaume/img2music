@@ -243,6 +243,12 @@ def process_composition(image, audio_file, instrument, use_reverb, use_delay, us
         analysis, msg = analyze_with_gemini(image, audio_file)
     
     if not analysis:
+        # Check for critical errors (API Key issues)
+        if "403" in msg or "API Key" in msg or "leaked" in msg:
+            st.error(f"🛑 **Arrêt Critique**: {msg}")
+            st.info("Veuillez mettre à jour votre clé API dans les secrets ou le fichier .env.")
+            return None
+            
         st.warning(f"⚠️ {msg}. Utilisation d'une composition de secours.")
         analysis = {
             "mood": "Fallback Basic",
@@ -453,10 +459,20 @@ with tab1:
             
             # Audio player
             try:
-                st.audio(result['audio'][1], format='audio/wav', sample_rate=result['audio'][0])
+                audio_data = result['audio'][1]
+                sample_rate = result['audio'][0]
+                
+                # Safety check: Ensure standard shape (samples, channels)
+                if isinstance(audio_data, np.ndarray):
+                    # If data looks like (channels, samples) e.g. (2, 44100), transpose it
+                    if len(audio_data.shape) == 2 and audio_data.shape[0] < audio_data.shape[1]:
+                        audio_data = audio_data.T
+                
+                st.audio(audio_data, format='audio/wav', sample_rate=sample_rate)
             except Exception as e:
                 st.error(f"Erreur lors de la lecture audio: {e}")
-                st.caption("Détails: Le fichier audio généré semble invalide ou incompatible.")
+                if isinstance(result['audio'][1], np.ndarray):
+                     st.caption(f"Debug: Shape={result['audio'][1].shape}, Dtype={result['audio'][1].dtype}")
             
             # Download buttons
             col_midi, col_mp3 = st.columns(2)
