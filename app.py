@@ -71,7 +71,15 @@ elif AudioEffects is None:
 
 # Gemini Configuration
 API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_ID = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
+if not API_KEY and "GEMINI_API_KEY" in st.secrets:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+
+MODEL_ID = os.getenv("GEMINI_MODEL")
+if not MODEL_ID:
+    if "GEMINI_MODEL" in st.secrets:
+        MODEL_ID = st.secrets["GEMINI_MODEL"]
+    else:
+        MODEL_ID = "models/gemini-2.5-flash"
 
 if not API_KEY:
     st.error("❌ Clé API Gemini non configurée. Veuillez configurer la variable d'environnement GEMINI_API_KEY (local: .env, Streamlit Cloud: secrets/env vars).")
